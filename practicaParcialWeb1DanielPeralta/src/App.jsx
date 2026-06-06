@@ -1,86 +1,177 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
 import SearchBar from "./components/SearchBar.jsx";
 import SeriesList from "./components/SeriesList.jsx";
+import FavoritesPanel from "./components/FavoritesPanel.jsx";
 import Modal from "./components/Modal.jsx";
 import ShowDetail from "./components/OpenDetail.jsx";
-import { searchShows, fetchShowDetail } from "./api/tvMazeApi.js";
+
+import {
+  searchShows,
+  fetchShowDetail,
+} from "./api/tvMazeApi.js";
+
+const STORAGE = "favorites";
+
+function getSaved() {
+  try {
+    const data = localStorage.getItem(STORAGE);
+
+    if (data) {
+      return JSON.parse(data);
+    }
+
+    return [];
+  } catch {
+    return [];
+  }
+}
 
 export default function App() {
-  const [text, setText] = useState("");
-  const [list, setList] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [query, setQuery] = useState("");
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
-  const [detailError, setDetailError] = useState("");
+  const [results, setResults] = useState([]);
 
-  async function doSearch() {
-    const value = text.trim();
-    if (!value) return;
+  const [loading, setLoading] = useState(false);
 
-    setIsLoading(true);
-    setErrorMsg("");
+  const [error, setError] = useState("");
+
+  const [favorites, setFavorites] =
+    useState(getSaved);
+
+  const [open, setOpen] = useState(false);
+
+  const [detail, setDetail] =
+    useState(null);
+
+  const [detailLoading, setDetailLoading] =
+    useState(false);
+
+  const [detailError, setDetailError] =
+    useState("");
+
+  useEffect(() => {
+    localStorage.setItem(
+      STORAGE,
+      JSON.stringify(favorites)
+    );
+  }, [favorites]);
+
+  async function handleSearch() {
+    const text = query.trim();
+
+    if (!text) return;
+
+    setLoading(true);
+    setError("");
 
     try {
-      const res = await searchShows(value);
-      setList(res);
+      const data =
+        await searchShows(text);
+
+      setResults(data);
+
     } catch {
-      setErrorMsg("Error buscando series");
+      setError("Error buscando");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }
 
-  async function showInfo(id) {
-    setIsOpen(true);
-    setSelected(null);
-    setDetailError("");
-    setLoadingDetail(true);
+  function toggleFavorite(show) {
+    const exists =
+      favorites.find(
+        (item) => item.id === show.id
+      );
 
-    try {
-      const data = await fetchShowDetail(id);
-      setSelected(data);
-    } catch {
-      setDetailError("Error cargando detalle");
-    } finally {
-      setLoadingDetail(false);
+    if (exists) {
+      setFavorites(
+        favorites.filter(
+          (item) =>
+            item.id !== show.id
+        )
+      );
+
+      return;
     }
+
+    setFavorites([
+      show,
+      ...favorites,
+    ]);
   }
 
-  function close() {
-    setIsOpen(false);
+  async function openDetail(id) {
+    setOpen(true);
+
+    setDetailLoading(true);
+
+    setDetail(null);
+
+    try {
+      const data =
+        await fetchShowDetail(id);
+
+      setDetail(data);
+
+    } catch {
+      setDetailError(
+        "No se pudo cargar"
+      );
+    } finally {
+      setDetailLoading(false);
+    }
   }
 
   return (
     <div className="app">
+
       <h1>TVMaze</h1>
 
       <SearchBar
-        query={text}
-        onChange={setText}
-        onSubmit={doSearch}
-        isLoading={isLoading}
+        query={query}
+        onChange={setQuery}
+        onSubmit={handleSearch}
+        isLoading={loading}
       />
 
-      {errorMsg && <div className="error">{errorMsg}</div>}
-      {isLoading && <p>Cargando…</p>}
+      <FavoritesPanel
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
+        onOpenDetail={openDetail}
+      />
+
+      {error && (
+        <p>{error}</p>
+      )}
 
       <SeriesList
-        shows={list}
-        onOpenDetail={showInfo}
+        shows={results}
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
+        onOpenDetail={openDetail}
       />
 
-      <Modal open={isOpen} onClose={close}>
-        {loadingDetail && <p>Cargando detalle…</p>}
+      <Modal
+        open={open}
+        onClose={() =>
+          setOpen(false)
+        }
+      >
 
-        {detailError && <p className="error">{detailError}</p>}
-
-        {!loadingDetail && !detailError && selected && (
-          <ShowDetail detail={selected} />
+        {detailLoading && (
+          <p>Cargando…</p>
         )}
+
+        {!detailLoading &&
+          detail && (
+            <ShowDetail
+              detail={detail}
+            />
+          )}
+
       </Modal>
+
     </div>
   );
 }

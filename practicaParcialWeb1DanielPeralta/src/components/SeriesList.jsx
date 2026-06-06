@@ -1,30 +1,43 @@
 import Serie from "./Serie.jsx";
 
 export default function SeriesList(props) {
-  const hasShows = props.shows.length > 0;
+  const {
+    shows,
+    favorites,
+    onToggleFavorite,
+    onOpenDetail,
+  } = props;
 
-  if (!hasShows) {
+  if (shows.length === 0) {
     return (
-      <section className="empty">
-        <h3>No hay resultados</h3>
+      <div className="empty">
+        <h3>Sin resultados</h3>
 
         <p className="muted">
-          Intenta escribir otra serie.
+          Busca una serie para empezar.
         </p>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="series-container">
+    <section className="results">
 
-      {props.shows.map((item) => (
-        <Serie
-          key={item.id}
-          show={item}
-          onOpenDetail={props.onOpenDetail}
-        />
-      ))}
+      <h2>Series</h2>
+
+      <div className="cardList">
+
+        {shows.map((show) => (
+          <Serie
+            key={show.id}
+            show={show}
+            favorites={favorites}
+            onToggleFavorite={onToggleFavorite}
+            onOpenDetail={onOpenDetail}
+          />
+        ))}
+
+      </div>
 
     </section>
   );
